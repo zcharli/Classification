@@ -1,7 +1,7 @@
 from __future__ import division
 import numpy as np
 import sklearn.cross_validation as skc
-import sklearn.naive_bayes as nb
+import sys
 
 # Useful settings keys
 COVARIANCE = "train_classes_cov_dict"
@@ -17,7 +17,7 @@ def main(s):
     trainTestBatch = splitTenFold(loadCSV(s["data"], s))
     s["10_fold_batches"] = trainTestBatch
     if s["title"] == "ZOO":
-        trainZoo(s)
+        train(s)
 
 def optimalBayesian(testBatch):
     sample = testBatch[0] # Temporary
@@ -36,24 +36,38 @@ def splitTenFold(data):
 def getMeanByClasses(sampleClassDict):
     classMeans = dict()
     for key in sampleClassDict.keys():
-        k = sampleClassDict[key]
-        m = np.mean(sampleClassDict[key], axis=0)
+        #k = sampleClassDict[key]
+        #m = np.mean(sampleClassDict[key], axis=0)
         classMeans[key] = np.mean(sampleClassDict[key], axis=0)
     return classMeans
 
-def getCovarianceMatrix(sampleClassDict):
+def getCovarianceMatrix(sampleClassDict):#, me):
     classCov = dict()
     for key in sampleClassDict.keys():
+        #k = manualCov(sampleClassDict[key], me[key])
+        #t = np.cov(np.array(sampleClassDict[key]).T)
         classCov[key] = np.cov(np.array(sampleClassDict[key]).T)
     return classCov
 
-def trainZoo(zooSettingsDict):
+
+# Not needed
+def manualCov(vectorList, mean):
+    c = 0
+    for i in vectorList:
+        x1 = (i - mean)
+        x2 = np.array([i-mean]).T
+        m1 = np.multiply(x1,x2)
+        c += m1
+    return (1/(len(vectorList)-1)) * c
+
+
+def train(zooSettingsDict):
     for batches in zooSettingsDict["10_fold_batches"]:
         trainSample = batches[0]
         testSample = batches[1]
-        zooSettingsDict["train_classes_dict"] = getClasses(trainSample)
-        zooSettingsDict[MEAN] = getMeanByClasses(zooSettingsDict["train_classes_dict"])
-        zooSettingsDict[COVARIANCE] = getCovarianceMatrix(zooSettingsDict["train_classes_dict"])
+        zooSettingsDict[CLASSES] = getClasses(trainSample)
+        zooSettingsDict[MEAN] = getMeanByClasses(zooSettingsDict[CLASSES])
+        zooSettingsDict[COVARIANCE] = getCovarianceMatrix(zooSettingsDict[CLASSES])#, zooSettingsDict[MEAN])
         #print zooSettingsDict["train_classes_cov_dict"]
         for x in trainSample:
             trueClass = x[len(x) - 1]
@@ -75,14 +89,24 @@ def classify(s, x):
         # l3 = np.log( np.abs(p))
         # m2 = mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]])
         # m1 = mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
-        c = np.log(np.linalg.norm(s[COVARIANCE][classes[idx]])) - np.log(np.linalg.norm(s[COVARIANCE][decKey])) + \
+        c = getLn(s[COVARIANCE][classes[idx]]) - getLn(s[COVARIANCE][decKey]) + \
             mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]]) - \
             mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
+        # c = np.log(np.linalg.norm(s[COVARIANCE][classes[idx]])) - np.log(np.linalg.norm(s[COVARIANCE][decKey])) + \
+        #     mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]]) - \
+        #     mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
         if c < 0:
             decKey = classes[idx]
-
-
     return decKey
+
+def getLn(covarianceMatrix):
+    if np.linalg.cond(covarianceMatrix) < 1/sys.float_info.epsilon:
+        return np.log(np.linalg.det(covarianceMatrix))
+    else:
+        m = np.linalg.pinv(covarianceMatrix)
+        k = np.log(np.linalg.det(covarianceMatrix))
+        l = np.linalg.det(np.linalg.pinv(covarianceMatrix))
+        return np.log(np.linalg.det(np.linalg.pinv(covarianceMatrix)))
 
 def mahalanobisDistance(x, m, c):
     if np.linalg.det(c) == 0.0:
