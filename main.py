@@ -3,21 +3,32 @@ import numpy as np
 import sklearn.cross_validation as skc
 import sys
 
+# Enums
+LINEAR = 0
+OPTIMAL_BAYES = 1
+NAIVE_BAYES = 2
+
 # Useful settings keys
 COVARIANCE = "train_classes_cov_dict"
 MEAN = "train_classes_mean_dict"
 CLASSES = "train_classes_dict"
-HEART_DISEASE = "./data/heartDisease.csv"
-CPU = "./data/cpu.csv"
+
 ZOO_SETTING = {"usecols": (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17),
                "data": "./data/zoo.csv",
                "title":"ZOO"}
+CPU_SETTING = {"usecols": (2,3,4,5,6,7,8,9),
+               "data": "./data/cpu.csv",
+               "title":"CPU"}
+HEART_SETTING = {"usecols": (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17),
+               "data": "./data/heartDisease.csv",
+               "title":"HEARTDISEASE"}
 
-def main(s):
+
+
+def main(s, strat):
     trainTestBatch = splitTenFold(loadCSV(s["data"], s))
     s["10_fold_batches"] = trainTestBatch
-    if s["title"] == "ZOO":
-        train(s)
+    train(s, strat)
 
 def optimalBayesian(testBatch):
     sample = testBatch[0] # Temporary
@@ -41,12 +52,15 @@ def getMeanByClasses(sampleClassDict):
         classMeans[key] = np.mean(sampleClassDict[key], axis=0)
     return classMeans
 
-def getCovarianceMatrix(sampleClassDict):#, me):
+def getCovarianceMatrix(sampleClassDict, strat):
     classCov = dict()
-    for key in sampleClassDict.keys():
-        #k = manualCov(sampleClassDict[key], me[key])
-        #t = np.cov(np.array(sampleClassDict[key]).T)
-        classCov[key] = np.cov(np.array(sampleClassDict[key]).T)
+    if strat == LINEAR:
+        return 0
+    else:
+        for key in sampleClassDict.keys():
+            classCov[key] = np.cov(np.array(sampleClassDict[key]).T)
+            if strat == NAIVE_BAYES:
+                classCov[key] = np.diag(np.diag(classCov[key]))
     return classCov
 
 
@@ -61,40 +75,35 @@ def manualCov(vectorList, mean):
     return (1/(len(vectorList)-1)) * c
 
 
-def train(zooSettingsDict):
+def train(zooSettingsDict, strat):
     for batches in zooSettingsDict["10_fold_batches"]:
         trainSample = batches[0]
         testSample = batches[1]
         zooSettingsDict[CLASSES] = getClasses(trainSample)
         zooSettingsDict[MEAN] = getMeanByClasses(zooSettingsDict[CLASSES])
-        zooSettingsDict[COVARIANCE] = getCovarianceMatrix(zooSettingsDict[CLASSES])#, zooSettingsDict[MEAN])
+        zooSettingsDict[COVARIANCE] = getCovarianceMatrix(zooSettingsDict[CLASSES], strat)#, zooSettingsDict[MEAN])
         #print zooSettingsDict["train_classes_cov_dict"]
+
         for x in trainSample:
             trueClass = x[len(x) - 1]
             #classsifiedClass =
-            classifiedClass = classify(zooSettingsDict, np.asarray(np.delete(x, len(x) - 1)))
+            classifiedClass = classify(zooSettingsDict, np.asarray(np.delete(x, len(x) - 1)), strat)
             print "e: %d   r: %d" % (trueClass, classifiedClass)
 
-def classify(s, x):
+def classify(s, x, strat):
     classes = s[CLASSES].keys()
     if len(classes) < 2: raise ValueError("Cannot classify with only one class")
     decKey = classes[0]
     #minDistance = sys.maxint
     for idx in range(1, len(classes)):
-        # a = np.linalg.norm(s[COVARIANCE][decKey])
-        # b = np.linalg.norm(s[COVARIANCE][classes[idx]])
-        # p = np.log(np.abs(b / a))
-        # ln2 = np.log(np.linalg.norm(s[COVARIANCE][classes[idx]]))
-        # ln1 = np.log(np.linalg.norm(s[COVARIANCE][decKey]))
-        # l3 = np.log( np.abs(p))
-        # m2 = mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]])
-        # m1 = mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
-        c = getLn(s[COVARIANCE][classes[idx]]) - getLn(s[COVARIANCE][decKey]) + \
-            mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]]) - \
-            mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
-        # c = np.log(np.linalg.norm(s[COVARIANCE][classes[idx]])) - np.log(np.linalg.norm(s[COVARIANCE][decKey])) + \
-        #     mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]]) - \
-        #     mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
+        if strat == OPTIMAL_BAYES:
+            c = getLn(s[COVARIANCE][classes[idx]]) - getLn(s[COVARIANCE][decKey]) + \
+                mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]]) - \
+                mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
+        elif strat == NAIVE_BAYES:
+            c = 0
+        elif strat == LINEAR:
+            c = 0;
         if c < 0:
             decKey = classes[idx]
     return decKey
@@ -103,10 +112,8 @@ def getLn(covarianceMatrix):
     if np.linalg.cond(covarianceMatrix) < 1/sys.float_info.epsilon:
         return np.log(np.linalg.det(covarianceMatrix))
     else:
-        m = np.linalg.pinv(covarianceMatrix)
-        k = np.log(np.linalg.det(covarianceMatrix))
-        l = np.linalg.det(np.linalg.pinv(covarianceMatrix))
-        return np.log(np.linalg.det(np.linalg.pinv(covarianceMatrix)))
+        d = np.linalg.det(covarianceMatrix)
+        return np.log(d) if d != 0 else d
 
 def mahalanobisDistance(x, m, c):
     if np.linalg.det(c) == 0.0:
@@ -127,7 +134,7 @@ def getClasses(tupleArray):
     return classes
 
 if __name__ == "__main__":
-    main(ZOO_SETTING)
+    main(ZOO_SETTING, OPTIMAL_BAYES)
 
 # Not needed
 # def manualCov(vectorList, mean):
