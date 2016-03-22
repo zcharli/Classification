@@ -3,6 +3,9 @@ import numpy as np
 import sklearn.cross_validation as skc
 import sys
 
+# Ignore those annoying errors
+# np.seterr(invalid='ignore',divide='ignore')
+
 # Enums
 LINEAR = 0
 OPTIMAL_BAYES = 1
@@ -13,42 +16,42 @@ COVARIANCE = "train_classes_cov_dict"
 MEAN = "train_classes_mean_dict"
 CLASSES = "train_classes_dict"
 
-ZOO_SETTING = {"usecols": (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17),
-               "data": "./data/zoo.csv",
+IRIS_SETTING = {"usecols": (0,1,2,3,4), "classIndex":4,
+               "data": "./data/iris.csv",
                "title":"ZOO"}
-CPU_SETTING = {"usecols": (2,3,4,5,6,7,8,9),
-               "data": "./data/cpu.csv",
-               "title":"CPU"}
-HEART_SETTING = {"usecols": (1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17),
+WINE_SETTING = {"usecols": (0,1,2,3,4,5,6,7,8,9,10,11,12,13),"classIndex":0,
+               "data": "./data/wine.csv",
+               "title":"WINE"}
+HEART_SETTING = {"usecols": (0,1,2,3,4,5,6,7,8,9,10,11,12,13),"classIndex":13,
                "data": "./data/heartDisease.csv",
                "title":"HEARTDISEASE"}
 
 
-
 def main(s, strat):
-    trainTestBatch = splitTenFold(loadCSV(s["data"], s))
+    trainTestBatch = splitTenFold(loadCSV(s["data"], s), s)
     s["10_fold_batches"] = trainTestBatch
     train(s, strat)
 
-def optimalBayesian(testBatch):
-    sample = testBatch[0] # Temporary
-
 def loadCSV(path, s):
-    return np.genfromtxt(path, dtype=None, usecols=s["usecols"], names=None,delimiter=',')
+    return np.genfromtxt(path, dtype=None, usecols=s["usecols"], names=True, delimiter=',')
 
-def splitTenFold(data):
+def processTuple(t,s):
+    if t[s['classIndex']].dtype.type is np.string_:
+        l = [t[x] for x in xrange(s['classIndex']+1)]# + t[s['classIndex']]
+        return np.asarray(l, dtype=object)
+    return np.asarray(np.asarray(t,dtype=object).item(0))
+
+def splitTenFold(data, s):
     splitIdx = skc.KFold(len(data), n_folds=10)
     tenFold = []
     for train, test in splitIdx:
-        tenFold.append((np.asarray([data[j] for j in train]),
-                        np.asarray([data[j] for j in test])))
+        tenFold.append(([processTuple(data[j], s) for j in train],
+                        [processTuple(data[j], s) for j in test]))
     return tenFold
 
 def getMeanByClasses(sampleClassDict):
     classMeans = dict()
     for key in sampleClassDict.keys():
-        #k = sampleClassDict[key]
-        #m = np.mean(sampleClassDict[key], axis=0)
         classMeans[key] = np.mean(sampleClassDict[key], axis=0)
     return classMeans
 
@@ -64,46 +67,47 @@ def getCovarianceMatrix(sampleClassDict, strat):
     return classCov
 
 
-# Not needed
-def manualCov(vectorList, mean):
-    c = 0
-    for i in vectorList:
-        x1 = (i - mean)
-        x2 = np.array([i-mean]).T
-        m1 = np.multiply(x1,x2)
-        c += m1
-    return (1/(len(vectorList)-1)) * c
+def getClasses(tupleArray, i):
+    classes = dict()
+    if len(tupleArray) == 0: raise ValueError("No classes to get.")
+    for sample in tupleArray:
+        sampleClass = sample[i]
+        if sampleClass in classes:
+            classes[sampleClass].append(np.delete(sample, i))
+        else:
+            classes[sampleClass] = [np.delete(sample, i)]
+    return classes
 
-
-def train(zooSettingsDict, strat):
-    for batches in zooSettingsDict["10_fold_batches"]:
-        trainSample = batches[0]
-        testSample = batches[1]
-        zooSettingsDict[CLASSES] = getClasses(trainSample)
-        zooSettingsDict[MEAN] = getMeanByClasses(zooSettingsDict[CLASSES])
-        zooSettingsDict[COVARIANCE] = getCovarianceMatrix(zooSettingsDict[CLASSES], strat)#, zooSettingsDict[MEAN])
-        #print zooSettingsDict["train_classes_cov_dict"]
-
+def train(s, strat):
+    avgCorrect = 0
+    #totalCorrect, totalTestable = 0,0
+    for batches in s["10_fold_batches"]:
+        trainSample, testSample = batches[0], batches[1]
+        s[CLASSES] = getClasses(trainSample, s["classIndex"])
+        s[MEAN] = getMeanByClasses(s[CLASSES])
+        s[COVARIANCE] = getCovarianceMatrix(s[CLASSES], strat)
+        batchCorrect,batchTotal = 0, len(trainSample)
         for x in trainSample:
-            trueClass = x[len(x) - 1]
-            #classsifiedClass =
-            classifiedClass = classify(zooSettingsDict, np.asarray(np.delete(x, len(x) - 1)), strat)
-            print "e: %d   r: %d" % (trueClass, classifiedClass)
+            trueClass = x[s['classIndex']]
+            classifiedClass = classify(s, np.delete(x,s['classIndex']), strat)
+            batchCorrect = batchCorrect + 1 if trueClass == classifiedClass else batchCorrect
+            #print "e: %d   r: %d" % (trueClass, classifiedClass)
+        avgCorrect += (batchCorrect/batchTotal)
+    print "10-Fold accuracy for %s dataset is %.2f" % (s["title"], avgCorrect/10)
 
 def classify(s, x, strat):
     classes = s[CLASSES].keys()
     if len(classes) < 2: raise ValueError("Cannot classify with only one class")
+    np.random.shuffle(classes)
     decKey = classes[0]
     #minDistance = sys.maxint
     for idx in range(1, len(classes)):
-        if strat == OPTIMAL_BAYES:
+        if strat == LINEAR:
+            c = 0
+        else:
             c = getLn(s[COVARIANCE][classes[idx]]) - getLn(s[COVARIANCE][decKey]) + \
                 mahalanobisDistance(x, s[MEAN][classes[idx]], s[COVARIANCE][classes[idx]]) - \
                 mahalanobisDistance(x, s[MEAN][decKey], s[COVARIANCE][decKey])
-        elif strat == NAIVE_BAYES:
-            c = 0
-        elif strat == LINEAR:
-            c = 0;
         if c < 0:
             decKey = classes[idx]
     return decKey
@@ -113,6 +117,7 @@ def getLn(covarianceMatrix):
         return np.log(np.linalg.det(covarianceMatrix))
     else:
         d = np.linalg.det(covarianceMatrix)
+        if d == 0: return 0
         return np.log(d) if d != 0 else d
 
 def mahalanobisDistance(x, m, c):
@@ -122,19 +127,13 @@ def mahalanobisDistance(x, m, c):
         l = np.linalg.inv(c)
     return reduce(np.dot, [np.array(x-m).T, l, x-m])
 
-def getClasses(tupleArray):
-    classes = dict()
-    if len(tupleArray) == 0: raise ValueError("No classes to get.")
-    index = len(tupleArray[0]) - 1
-    for sample in tupleArray:
-        if sample[index] in classes:
-            classes[sample[index]].append(np.asarray(np.delete(sample,len(sample) -1)))
-        else:
-            classes[sample[index]] = [np.asarray(np.delete(sample,len(sample) -1))]
-    return classes
-
 if __name__ == "__main__":
-    main(ZOO_SETTING, OPTIMAL_BAYES)
+   main(WINE_SETTING, OPTIMAL_BAYES)
+   main(IRIS_SETTING, OPTIMAL_BAYES)
+   main(HEART_SETTING, OPTIMAL_BAYES)
+   main(HEART_SETTING, NAIVE_BAYES)
+   main(IRIS_SETTING, NAIVE_BAYES)
+   main(WINE_SETTING, NAIVE_BAYES)
 
 # Not needed
 # def manualCov(vectorList, mean):
