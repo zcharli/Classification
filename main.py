@@ -22,7 +22,7 @@ IRIS_SETTING = {"usecols": (0,1,2,3,4), "classIndex":4,
 WINE_SETTING = {"usecols": (0,1,2,3,4,5,6,7,8,9,10,11,12,13),"classIndex":0,
                "data": "./data/wine.csv",
                "title":"WINE"}
-HEART_SETTING = {"usecols": (0,1,2,3,4,5,6,7,8,9,10,11,12,13),"classIndex":13,
+HEART_SETTING = {"usecols": (0,2,3,4,5,6,7,8,9,10,11,12,13),"classIndex":12,
                "data": "./data/heartDisease.csv",
                "title":"HEARTDISEASE"}
 
@@ -42,7 +42,7 @@ def processTuple(t,s):
     return np.asarray(np.asarray(t,dtype=object).item(0))
 
 def splitTenFold(data, s):
-    splitIdx = skc.KFold(len(data), n_folds=10)
+    splitIdx = skc.KFold(len(data), n_folds=10) #, shuffle=True)
     tenFold = []
     for train, test in splitIdx:
         tenFold.append(([processTuple(data[j], s) for j in train],
@@ -80,7 +80,6 @@ def getClasses(tupleArray, i):
 
 def train(s, strat):
     avgCorrect = 0
-    #totalCorrect, totalTestable = 0,0
     for batches in s["10_fold_batches"]:
         trainSample, testSample = batches[0], batches[1]
         s[CLASSES] = getClasses(trainSample, s["classIndex"])
@@ -91,16 +90,13 @@ def train(s, strat):
             trueClass = x[s['classIndex']]
             classifiedClass = classify(s, np.delete(x,s['classIndex']), strat)
             batchCorrect = batchCorrect + 1 if trueClass == classifiedClass else batchCorrect
-            #print "e: %d   r: %d" % (trueClass, classifiedClass)
         avgCorrect += (batchCorrect/batchTotal)
     print "10-Fold accuracy for %s dataset is %.2f" % (s["title"], avgCorrect/10)
 
 def classify(s, x, strat):
     classes = s[CLASSES].keys()
     if len(classes) < 2: raise ValueError("Cannot classify with only one class")
-    np.random.shuffle(classes)
     decKey = classes[0]
-    #minDistance = sys.maxint
     for idx in range(1, len(classes)):
         if strat == LINEAR:
             c = 0
