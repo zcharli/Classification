@@ -15,11 +15,7 @@ class DecisionTree(object):
     def __init__(self, classIndex):
         self.classIndex = classIndex
 
-    def train(self, dataset):
-        return self.buildDecisionTree(dataset)
-
-    # Create counts of possible results (last column of each row is the result)
-    def uniqueCounts(self, rows):
+    def getUniqueCounts(self, rows):
         results = {}
         for row in rows:
             # The result is the last column
@@ -29,7 +25,7 @@ class DecisionTree(object):
         return results
 
     def entropy(self, rows):
-        results = self.uniqueCounts(rows)
+        results = self.getUniqueCounts(rows)
         # Now calculate the entropy
         ent = 0.0
         for r in results.keys():
@@ -42,8 +38,8 @@ class DecisionTree(object):
         b = s1 + s2
         return -(s1 / b) * np.log2(s1 / b) - (1-(s1/b))*(s2 / b) * np.log2(s2 / b)
 
-    def buildDecisionTree(self, rows):
-        if len(rows) == 0: return None
+    def train(self, rows):
+        if len(rows) == 0: raise ValueError("Must provide training with non empty dataset")
         # Gain(S, A) = Entropy(S) - \sum_{v \in Values(A)} |Sv| / |S| Entropy(Sv)
         currentGain = self.entropy(rows)
         highestGain, bestAttribute, bestSet, numAttributes = 0.0, None, None, len(rows[0])
@@ -53,7 +49,7 @@ class DecisionTree(object):
             uniqueAttributes = set([row[attribute] for row in rows])
             for value in uniqueAttributes:
                 # Calculate information gain on this attribute
-                s1, s2 = self.divideSet(rows, attribute, value)
+                s1, s2 = self.partitionDataset(rows, attribute, value)
                 if len(s2) == 0:
                     gain = 0
                 else:
@@ -64,13 +60,13 @@ class DecisionTree(object):
                     bestAttribute = (attribute, value)
                     bestSet = (s1, s2)
         if highestGain > 0:
-            trueBranch = self.buildDecisionTree(bestSet[0])
-            falseBranch = self.buildDecisionTree(bestSet[1])
+            trueBranch = self.train(bestSet[0])
+            falseBranch = self.train(bestSet[1])
             return DecisionTreeNode(col=bestAttribute[0], val=bestAttribute[1], t=trueBranch, f=falseBranch)
         else:
-            return DecisionTreeNode(result=self.uniqueCounts(rows))
+            return DecisionTreeNode(result=self.getUniqueCounts(rows))
 
-    def divideSet(self, rows, attribute, value):
+    def partitionDataset(self, rows, attribute, value):
         return ([row for row in rows if row[attribute] >= value],
                 [row for row in rows if row[attribute] < value])
 
@@ -91,9 +87,9 @@ class DecisionTree(object):
         node = treeRoot
         while True:
             if node.branchResultDict is not None:
-                return node.branchResultDict
+                return node.branchResultDict.keys()[0]
             else:
-                if sampleVector[node.columnIndex] <= node.trueValThreash:
+                if sampleVector[node.columnIndex] >= node.trueValThreash:
                     node = node.trueNodes
                 else:
                     node = node.falseNodes

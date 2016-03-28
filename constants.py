@@ -7,7 +7,7 @@ TEN_FOLD, T_CLASS, TEST_BATCH, TRAIN, TEST = "10_fold_batches", "10_fold_classes
 
 IRIS_SETTING = {"usecols": (0,1,2,3,4), "classIndex":4,
                "data": "./data/iris.csv",
-               "title":"ZOO"}
+               "title":"IRIS"}
 WINE_SETTING = {"usecols": (0,1,2,3,4,5,6,7,8,9,10,11,12,13),"classIndex":0,
                "data": "./data/wine.csv",
                "title":"WINE"}

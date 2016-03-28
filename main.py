@@ -27,29 +27,31 @@ def trainDecisionTree(s, strat):
     for key in keys:
         currentClass, classCorrectness = key, 0
         for batchNumber in xrange(len(s[T_CLASS][key][TEST_BATCH])):  # for each K-fold, leave 1 out
-            batchDataset, testDataset = [], None
-            for key in keys:
-                if key == currentClass:
-                    batchDataset.append(s[T_CLASS][key][TEST_BATCH][batchNumber][TRAIN])
-                    testDataset = s[T_CLASS][key][TEST_BATCH][batchNumber][TEST]
+            batchDataset, testDataset, classCorrect = [], None, 0
+            for eachKey in keys:
+                if eachKey == currentClass:
+                    batchDataset.append(s[T_CLASS][eachKey][TEST_BATCH][batchNumber][TRAIN])
+                    testDataset = s[T_CLASS][eachKey][TEST_BATCH][batchNumber][TEST]
                 else:
-                    batchDataset.append(s[R_CLASS][key][TEST_BATCH])
+                    batchDataset.append(s[R_CLASS][eachKey][TEST_BATCH])
             batchDataset = [data for sublist in batchDataset for data in sublist]
             decisionTree = d.DecisionTree(s[CLASS_INDEX])
-            root = decisionTree.buildDecisionTree(batchDataset)
-           #decisionTree.printtree(root)
+            root = decisionTree.train(batchDataset)
+            #decisionTree.printtree(root)
             for data in testDataset:
                 if key == decisionTree.classify(root,data):
-                    print "horray"
-                    classCorrectness += 1
-                else:
-                    print "BOO"
-            print "%s class %s for %s accuracy %0.2f%%" % (s[TITLE], str(key), strat,
-                                                           (classCorrectness / len(s[T_CLASS][key][TEST_BATCH])) * 100)
+                    #print "horray"
+                    classCorrect += 1
+                # else:
+                #     print "BOO"
+            classCorrectness += (classCorrect / len(testDataset))
+        print "%s class %s for %s accuracy %0.2f%%" % (s[TITLE], str(key), strat,
+                                                       (classCorrectness / len(s[T_CLASS][key][TEST_BATCH])) * 100)
+        totalCorrectness += classCorrectness / len(s[T_CLASS][key][TEST_BATCH])
     print "%s accuracy using %s for %s dataset is %.2f%% over %d records\n" % (s[TEST_STRATEGY],
                                                                                strat, s[TITLE],
-                                                                               100 * (totalCorrectness / len(keys),
-                                                                               len(batchDataset) + len(testDataset)))
+                                                                               100 * (totalCorrectness / len(keys)),
+                                                                               len(batchDataset) + len(testDataset))
 
 
 def loadCSV(path, s):
@@ -110,8 +112,7 @@ def test(s, strat):
         # print "%s class %s for %s accuracy %0.2f%%" % (s[TITLE], str(key), strat,
         #                                                (classCorrectness / len(s[T_CLASS][key][TEST_BATCH])) * 100)
     print "%s accuracy using %s for %s dataset is %.2f%% over %d records\n" % (s[TEST_STRATEGY], strat, s[TITLE],
-                                                                               100 * (totalCorrectness / len(
-                                                                                   s[T_CLASS].keys())), count)
+                                                                               100 * (totalCorrectness / len(s[T_CLASS].keys())), count)
 
 
 def train(s, strat):
@@ -148,8 +149,8 @@ if __name__ == "__main__":
     # main(IRIS_SETTING, LINEAR, LOO, iris)
     # main(HEART_SETTING, LINEAR, K_FOLD, heart)
     # main(HEART_SETTING, LINEAR, LOO, heart)
-    main(WINE_SETTING, DESC, K_FOLD, wine)
-    # main(WINE_SETTING, DESC, LOO, wine)
+    # main(WINE_SETTING, DESC, K_FOLD, wine)
+    main(WINE_SETTING, DESC, LOO, wine)
     # main(IRIS_SETTING, DESC, K_FOLD, iris)
     # main(IRIS_SETTING, DESC, LOO, iris)
     # main(HEART_SETTING, DESC, K_FOLD, heart)
