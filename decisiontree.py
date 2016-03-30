@@ -1,6 +1,7 @@
 from __future__ import division
 from constants import *
 import numpy as np
+from threading import Thread
 
 
 class DecisionTreeNode(object):
@@ -67,8 +68,18 @@ class DecisionTree(object):
             return DecisionTreeNode(result=self.getUniqueCounts(rows))
 
     def partitionDataset(self, rows, attribute, value):
-        return ([row for row in rows if row[attribute] >= value],
-                [row for row in rows if row[attribute] < value])
+        # gtThread = ThreadWithReturnValue(target=self.gtEqThread, args=(rows, attribute, value))
+        # ltThread = ThreadWithReturnValue(target=self.ltThread, args=(rows, attribute, value))
+        # gtThread.start()
+        # ltThread.start()
+        # return gtThread.join(),ltThread.join()
+        return [row for row in rows if row[attribute] >= value], [row for row in rows if row[attribute] < value]
+
+    def gtEqThread(self, rows, attribute, value):
+        return [row for row in rows if row[attribute] >= value]
+
+    def ltThread(self, rows, attribute, value):
+        return [row for row in rows if row[attribute] < value]
 
     def printtree(self, tree, indent=''):
         # Is this a leaf node?
@@ -93,3 +104,4 @@ class DecisionTree(object):
                     node = node.trueNodes
                 else:
                     node = node.falseNodes
+

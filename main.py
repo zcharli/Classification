@@ -4,7 +4,8 @@ import sklearn.cross_validation as skc
 import decisiontree as d
 import bayes as b
 from constants import *
-
+from threadwithreturn import ThreadWithReturnValue
+import time
 
 # Ignore those annoying errors
 # np.seterr(invalid='ignore',divide='ignore')
@@ -25,8 +26,10 @@ def main(s, strat, testMethod, data=None):
 def trainDecisionTree(s, strat):
     currentBatch, currentClass, keys, totalCorrectness = 0, 0, s[T_CLASS].keys(), 0
     for key in keys:
-        currentClass, classCorrectness = key, 0
+        currentClass, classCorrectness, threads = key, 0, [None]*len(s[T_CLASS][key][TEST_BATCH])
         for batchNumber in xrange(len(s[T_CLASS][key][TEST_BATCH])):  # for each K-fold, leave 1 out
+            #threads[batchNumber] = ThreadWithReturnValue(target=decisionTreeThread, args=(s,batchNumber, keys,currentClass, key))
+           #threads[batchNumber].start()
             batchDataset, testDataset, classCorrect = [], None, 0
             for eachKey in keys:
                 if eachKey == currentClass:
@@ -40,10 +43,9 @@ def trainDecisionTree(s, strat):
             #decisionTree.printtree(root)
             for data in testDataset:
                 if key == decisionTree.classify(root,data):
-                    #print "horray"
                     classCorrect += 1
-                # else:
-                #     print "BOO"
+        #for batchNumber in xrange(len(s[T_CLASS][key][TEST_BATCH])):  # for each K-fold, leave 1 out
+        #    classCorrect, batchDataset, testDataset = threads[batchNumber].join()
             classCorrectness += (classCorrect / len(testDataset))
         print "%s class %s for %s accuracy %0.2f%%" % (s[TITLE], str(key), strat,
                                                        (classCorrectness / len(s[T_CLASS][key][TEST_BATCH])) * 100)
@@ -51,8 +53,24 @@ def trainDecisionTree(s, strat):
     print "%s accuracy using %s for %s dataset is %.2f%% over %d records\n" % (s[TEST_STRATEGY],
                                                                                strat, s[TITLE],
                                                                                100 * (totalCorrectness / len(keys)),
-                                                                               len(batchDataset) + len(testDataset))
+                                                                               len(batchDataset)+ len(testDataset))
 
+def decisionTreeThread(s,batchNumber, keys, currentClass, key):
+    batchDataset, testDataset, classCorrect = [], None, 0
+    for eachKey in keys:
+        if eachKey == currentClass:
+            batchDataset.append(s[T_CLASS][eachKey][TEST_BATCH][batchNumber][TRAIN])
+            testDataset = s[T_CLASS][eachKey][TEST_BATCH][batchNumber][TEST]
+        else:
+            batchDataset.append(s[R_CLASS][eachKey][TEST_BATCH])
+    batchDataset = [data for sublist in batchDataset for data in sublist]
+    decisionTree = d.DecisionTree(s[CLASS_INDEX])
+    root = decisionTree.train(batchDataset)
+    # decisionTree.printtree(root)
+    for data in testDataset:
+        if key == decisionTree.classify(root, data):
+            classCorrect += 1
+    return classCorrect, batchDataset, testDataset
 
 def loadCSV(path, s):
     return np.genfromtxt(path, dtype=None, usecols=s["usecols"], names=True, delimiter=',')
