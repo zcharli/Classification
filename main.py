@@ -11,7 +11,6 @@ import time
 # np.seterr(invalid='ignore',divide='ignore')
 
 
-
 def main(s, strat, testMethod, data=None):
     csvData = data if data is not None else loadCSV(s["data"], s)
     s[TEST_STRATEGY] = testMethod
@@ -27,7 +26,7 @@ def trainDecisionTree(s, strat):
     currentBatch, currentClass, keys, totalCorrectness = 0, 0, s[T_CLASS].keys(), 0
     for key in keys:
         currentClass, classCorrectness, threads = key, 0, [None]*len(s[T_CLASS][key][TEST_BATCH])
-        for batchNumber in xrange(len(s[T_CLASS][key][TEST_BATCH])):  # for each K-fold, leave 1 out
+        for batchNumber in xrange(int(len(s[T_CLASS][key][TEST_BATCH])/4)):  # for each K-fold, leave 1 out
             #threads[batchNumber] = ThreadWithReturnValue(target=decisionTreeThread, args=(s,batchNumber, keys,currentClass, key))
            #threads[batchNumber].start()
             batchDataset, testDataset, classCorrect = [], None, 0
@@ -38,11 +37,11 @@ def trainDecisionTree(s, strat):
                 else:
                     batchDataset.append(s[R_CLASS][eachKey][TEST_BATCH])
             batchDataset = [data for sublist in batchDataset for data in sublist]
-            decisionTree = d.DecisionTree(s[CLASS_INDEX])
+            decisionTree = d.DecisionTree(s[CLASS_INDEX],s['discreet'])
             root = decisionTree.train(batchDataset)
             #decisionTree.printtree(root)
             for data in testDataset:
-                if key == decisionTree.classify(root,data):
+                if key == decisionTree.classify(root,[dis if isinstance(dis, basestring) else decisionTree.discreetMe(dis) for dis in data]):
                     classCorrect += 1
         #for batchNumber in xrange(len(s[T_CLASS][key][TEST_BATCH])):  # for each K-fold, leave 1 out
         #    classCorrect, batchDataset, testDataset = threads[batchNumber].join()
@@ -66,9 +65,9 @@ def decisionTreeThread(s,batchNumber, keys, currentClass, key):
     batchDataset = [data for sublist in batchDataset for data in sublist]
     decisionTree = d.DecisionTree(s[CLASS_INDEX])
     root = decisionTree.train(batchDataset)
-    # decisionTree.printtree(root)
+    decisionTree.printtree(root)
     for data in testDataset:
-        if key == decisionTree.classify(root, data):
+        if key == decisionTree.classify(root, [int(dis) for dis in data]):
             classCorrect += 1
     return classCorrect, batchDataset, testDataset
 
@@ -168,8 +167,8 @@ if __name__ == "__main__":
     # main(HEART_SETTING, LINEAR, K_FOLD, heart)
     # main(HEART_SETTING, LINEAR, LOO, heart)
     # main(WINE_SETTING, DESC, K_FOLD, wine)
-    main(WINE_SETTING, DESC, LOO, wine)
+    # main(WINE_SETTING, DESC, LOO, wine)
     # main(IRIS_SETTING, DESC, K_FOLD, iris)
-    # main(IRIS_SETTING, DESC, LOO, iris)
-    # main(HEART_SETTING, DESC, K_FOLD, heart)
-    # main(HEART_SETTING, DESC, LOO, heart)
+    #main(IRIS_SETTING, DESC, LOO, iris)
+    main(HEART_SETTING, DESC, K_FOLD, heart)
+    #main(HEART_SETTING, DESC, LOO, heart)

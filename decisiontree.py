@@ -3,7 +3,6 @@ from constants import *
 import numpy as np
 from threading import Thread
 
-
 class DecisionTreeNode(object):
     def __init__(self, col=None, val=None, result=None, t=None, f=None):
         self.columnIndex = col
@@ -13,8 +12,9 @@ class DecisionTreeNode(object):
         self.falseNodes = f
 
 class DecisionTree(object):
-    def __init__(self, classIndex):
+    def __init__(self, classIndex, discreet):
         self.classIndex = classIndex
+        self.discreet = discreet
 
     def getUniqueCounts(self, rows):
         results = {}
@@ -29,7 +29,7 @@ class DecisionTree(object):
         results = self.getUniqueCounts(rows)
         # Now calculate the entropy
         ent = 0.0
-        for r in results.keys():
+        for  r in results.keys():
             # current probability of class
             p = results[r] / len(rows)
             ent -= p * np.log2(p)
@@ -47,7 +47,7 @@ class DecisionTree(object):
         for attribute in xrange(numAttributes):
             if attribute == self.classIndex:
                 continue
-            uniqueAttributes = set([row[attribute] for row in rows])
+            uniqueAttributes = set([self.discreetMe(row[attribute]) for row in rows])
             for value in uniqueAttributes:
                 # Calculate information gain on this attribute
                 s1, s2 = self.partitionDataset(rows, attribute, value)
@@ -73,7 +73,8 @@ class DecisionTree(object):
         # gtThread.start()
         # ltThread.start()
         # return gtThread.join(),ltThread.join()
-        return [row for row in rows if row[attribute] >= value], [row for row in rows if row[attribute] < value]
+        return [row for row in rows if self.discreetMe(row[attribute]) >= value], \
+               [row for row in rows if self.discreetMe(row[attribute]) < value]
 
     def gtEqThread(self, rows, attribute, value):
         return [row for row in rows if row[attribute] >= value]
@@ -100,8 +101,9 @@ class DecisionTree(object):
             if node.branchResultDict is not None:
                 return node.branchResultDict.keys()[0]
             else:
-                if sampleVector[node.columnIndex] >= node.trueValThreash:
+                if self.discreetMe(sampleVector[node.columnIndex]) >= node.trueValThreash:
                     node = node.trueNodes
                 else:
                     node = node.falseNodes
-
+    def discreetMe(self, int):
+        return round(int * self.discreet) /self.discreet
