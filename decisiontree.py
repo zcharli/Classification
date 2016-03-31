@@ -90,32 +90,44 @@ class DecisionTree(object):
         return [row for row in rows if row[attribute] < value]
 
     def generateGraphviz(self, root):
-        self.graph.node("Root node: "+str(root.trueValThreash))
-        self.graph.node_attr['ranksep'] = '1.5'
-        #self.graph.node_attr['label'] = 'Fuck'
-        node = root
-        self.printtree(root.trueNodes, "Rootnode:"+str(root.trueValThreash), "True")
-        self.printtree(root.falseNodes, "Rootnode:"+str(node.trueValThreash), "False")
+        self.num += 1
+        identity = self.makeID(self.num)
+        label = "Root Node"
+        attr = dict()
+        classTxt = "Root "
+        threashTxt = "row[" + str(root.columnIndex) +"] >= "+str(root.trueValThreash)
+        self.graph.node(identity, label=label+"\n"+threashTxt, classTxt=classTxt, threashTxt=threashTxt)
+        self.printtree(root.trueNodes, identity, "True")
+        self.printtree(root.falseNodes, identity, "False")
         filename = self.graph.render(filename='img/decisionTree')
+
+    def makeID(self, num):
+        return "decBranch_"+str(num)
 
     def printtree(self, tree, parent=None, indent=''):
         # Is this a leaf node?
         if tree.branchResultDict is not None:
             self.num += 1
-            testTxt = "Decision:" + str(tree.branchResultDict[tree.branchResultDict.keys()[0]])+"_" + str(self.num)
-            self.graph.node(testTxt)
-            self.graph.edge(parent,testTxt)
+            identity = self.makeID(self.num)
+            valTxt = "Value: " + str(str(tree.branchResultDict[tree.branchResultDict.keys()[0]]))
+
+            classTxt = "Class: " + str(tree.branchResultDict.keys()[0])
+            label = "Decision branch\n" + classTxt + "\n"+valTxt
+            self.graph.node(identity, label=label, classTxt=classTxt, valTxt=valTxt)
+            self.graph.edge(parent,identity,label=indent)
 
         else:
             # Print the criteria
             self.num += 1
-            testTxt = str(self.num)
+            identity = self.makeID(self.num)
 
-            #testTxt = indent + '->' + 'Column'+ str(tree.columnIndex) + ':' + str(tree.trueValThreash) + '?' + str(self.num)
-            self.graph.node(testTxt)
-            self.graph.edge(parent, testTxt)
-            self.printtree(tree.trueNodes, testTxt,"True")
-            self.printtree(tree.falseNodes, testTxt, 'False')
+            threashTxt = "row[" + str(tree.columnIndex) + "] >= " + str(tree.trueValThreash)
+            label = indent + " branch \n"
+            self.graph.node(identity, label=label + threashTxt, threashTxt=threashTxt)
+            if parent is not None:
+                self.graph.edge(parent, identity, label=indent)
+            self.printtree(tree.trueNodes, identity,"True")
+            self.printtree(tree.falseNodes, identity, 'False')
 
     def getBinValue(self, row, idx):
         if type(self.inds) == float: return self.roundingDiscretize(row[idx])
