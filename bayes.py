@@ -5,20 +5,18 @@ import sys
 def getCovarianceMatrix(dataset, strat):
     return np.diag(np.diag(np.cov(np.array(dataset).T))) if strat == NAIVE_BAYES else np.cov(np.array(dataset).T)
 
-def classify(s, x, strat, b, key): # Fix the high coupling this has with (s dict)
-    classes = s[T_CLASS].keys()
+def classify(pkgDict, testSample, strat): # Fix the high coupling this has with (s dict)
+    classes = pkgDict.keys()
     if len(classes) < 2: raise ValueError("Cannot classify with only one class")
     decKey = classes[0]
     for idx in range(1, len(classes)):
-        bMean, aMean = s[T_CLASS][decKey][MEAN][b] if decKey == key else s[R_CLASS][decKey][MEAN], \
-                       s[T_CLASS][classes[idx]][MEAN][b] if classes[idx] == key else s[R_CLASS][classes[idx]][MEAN]
-        bCov, aCov = s[T_CLASS][decKey][COVARIANCE][b] if decKey == key else s[R_CLASS][decKey][COVARIANCE], \
-                     s[T_CLASS][classes[idx]][COVARIANCE][b] if classes[idx] == key else s[R_CLASS][classes[idx]][COVARIANCE]
+        bMean, aMean = pkgDict[decKey][MEAN], pkgDict[classes[idx]][MEAN]
+        bCov, aCov = pkgDict[decKey][COVARIANCE], pkgDict[classes[idx]][COVARIANCE]
         if strat == LINEAR:
             avgCov = (bCov + aCov) / 2
-            c = mahalanobisDistance(x,aMean,avgCov) - mahalanobisDistance(x,bMean,avgCov)
+            c = mahalanobisDistance(testSample,aMean,avgCov) - mahalanobisDistance(testSample,bMean,avgCov)
         else:
-            c = getLn(aCov) - getLn(bCov) + mahalanobisDistance(x, aMean, aCov) - mahalanobisDistance(x, bMean, bCov)
+            c = getLn(aCov) - getLn(bCov) + mahalanobisDistance(testSample, aMean, aCov) - mahalanobisDistance(testSample, bMean, bCov)
         if c < 0:
             decKey = classes[idx]
     return decKey
@@ -39,12 +37,31 @@ def mahalanobisDistance(x, m, c):
         l = np.linalg.inv(c)
     return reduce(np.dot, [np.array(x-m).T, l, x-m])
 
-def averageCovariance(s):
-    keySet = s[T_CLASS].keys()
-    if len(s[T_CLASS][keySet[0]][COVARIANCE]) == 0: raise ValueError("No covariance was calculated.")
-    count, s[LINEAR_COV] = 0 , np.zeros(shape=(len(s[T_CLASS][keySet[0]][COVARIANCE][0]),len(s[T_CLASS][keySet[0]][COVARIANCE][0])))
-    for key in keySet:
-        for i in xrange(len(s[T_CLASS][key][COVARIANCE])):
-            s[LINEAR_COV] += s[T_CLASS][key][COVARIANCE][i]
-            count += 1
-    s[LINEAR_COV] = s[LINEAR_COV]/count
+# def averageCovariance(s):
+#     keySet = s[T_CLASS].keys()
+#     if len(s[T_CLASS][keySet[0]][COVARIANCE]) == 0: raise ValueError("No covariance was calculated.")
+#     count, s[LINEAR_COV] = 0 , np.zeros(shape=(len(s[T_CLASS][keySet[0]][COVARIANCE][0]),len(s[T_CLASS][keySet[0]][COVARIANCE][0])))
+#     for key in keySet:
+#         for i in xrange(len(s[T_CLASS][key][COVARIANCE])):
+#             s[LINEAR_COV] += s[T_CLASS][key][COVARIANCE][i]
+#             count += 1
+#     s[LINEAR_COV] = s[LINEAR_COV]/count
+
+# OLD CODE
+# def classify(s, x, strat, b, key): # Fix the high coupling this has with (s dict)
+#     classes = s[T_CLASS].keys()
+#     if len(classes) < 2: raise ValueError("Cannot classify with only one class")
+#     decKey = classes[0]
+#     for idx in range(1, len(classes)):
+#         bMean, aMean = s[T_CLASS][decKey][MEAN][b] if decKey == key else s[R_CLASS][decKey][MEAN], \
+#                        s[T_CLASS][classes[idx]][MEAN][b] if classes[idx] == key else s[R_CLASS][classes[idx]][MEAN]
+#         bCov, aCov = s[T_CLASS][decKey][COVARIANCE][b] if decKey == key else s[R_CLASS][decKey][COVARIANCE], \
+#                      s[T_CLASS][classes[idx]][COVARIANCE][b] if classes[idx] == key else s[R_CLASS][classes[idx]][COVARIANCE]
+#         if strat == LINEAR:
+#             avgCov = (bCov + aCov) / 2
+#             c = mahalanobisDistance(x,aMean,avgCov) - mahalanobisDistance(x,bMean,avgCov)
+#         else:
+#             c = getLn(aCov) - getLn(bCov) + mahalanobisDistance(x, aMean, aCov) - mahalanobisDistance(x, bMean, bCov)
+#         if c < 0:
+#             decKey = classes[idx]
+#     return decKey
