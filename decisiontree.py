@@ -3,6 +3,7 @@ from constants import *
 import numpy as np
 from threading import Thread
 import pandas as pd
+import graphviz as gv
 
 class DecisionTreeNode(object):
     def __init__(self, col=None, val=None, result=None, t=None, f=None):
@@ -18,6 +19,8 @@ class DecisionTree(object):
         self.discreet = settings["discreet"]
         self.bins = settings["bins"]
         self.inds = bins
+        self.graph = gv.Graph(format='svg')
+        self.num = 0
 
     def getUniqueCounts(self, rows):
         results = {}
@@ -86,18 +89,28 @@ class DecisionTree(object):
     def ltThread(self, rows, attribute, value):
         return [row for row in rows if row[attribute] < value]
 
-    def printtree(self, tree, indent=''):
+    def generateGraphviz(self, root):
+        self.graph.node("Root node: "+str(root.trueValThreash))
+        self.printtree(root.trueNodes, "Root node: "+str(root.trueValThreash), "True")
+        self.printtree(root.falseNodes, "Root node: "+str(root.trueValThreash), "False")
+        filename = self.graph.render(filename='img/decisionTree')
+
+    def printtree(self, tree, parent=None, indent=''):
         # Is this a leaf node?
         if tree.branchResultDict is not None:
-            print str(tree.branchResultDict)
+            self.num += 1
+            testTxt = "Decision: " + str(tree.branchResultDict) + str(self.num)
+            self.graph.node(testTxt)
+            self.graph.edge(testTxt, parent)
+            print
         else:
             # Print the criteria
-            print 'Column ' + str(tree.columnIndex) + ' : ' + str(tree.trueValThreash) + '? '
-            # Print the branches
-            print indent + 'True->',
-            self.printtree(tree.trueNodes, indent + '  ')
-            print indent + 'False->',
-            self.printtree(tree.falseNodes, indent + '  ')
+            self.num += 1
+            testTxt = indent + '->' + 'Column '+ str(tree.columnIndex) + ' : ' + str(tree.trueValThreash) + '?' + str(self.num)
+            self.graph.node(testTxt)
+            self.graph.edge(testTxt, parent)
+            self.printtree(tree.trueNodes, testTxt,"True")
+            self.printtree(tree.falseNodes, testTxt, 'False')
 
     def getBinValue(self, row, idx):
         if type(self.inds) == float: return self.roundingDiscretize(row[idx])

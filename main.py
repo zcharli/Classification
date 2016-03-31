@@ -80,7 +80,7 @@ def trainDecisionTree(pkgDict, settings=None):
     discretizedDataset, bins = discretize(trainBatch, settings)
     decisionTree = d.DecisionTree(settings, bins)
     root = decisionTree.train(discretizedDataset)
-    # decisionTree.printtree(root)
+    decisionTree.generateGraphviz(root)
     for key in pkgDict.keys():
         for sample in pkgDict[key][TEST]:
             if key == decisionTree.classify(root,sample):
@@ -147,12 +147,12 @@ if __name__ == "__main__":
     # main(IRIS_SETTING, LINEAR, LOO, iris)
     # main(HEART_SETTING, LINEAR, K_FOLD, heart)
     # main(HEART_SETTING, LINEAR, LOO, heart)
-    main(WINE_SETTING, DESC, K_FOLD, wine)
+    # main(WINE_SETTING, DESC, K_FOLD, wine)
     # main(WINE_SETTING, DESC, LOO, wine)
-    main(IRIS_SETTING, DESC, K_FOLD, iris)
-    #main(IRIS_SETTING, DESC, LOO, iris)
-    #main(HEART_SETTING, DESC, K_FOLD, heart)
-    # main(HEART_SETTING, DESC, LOO, heart)
+    # main(IRIS_SETTING, DESC, K_FOLD, iris)
+    # main(IRIS_SETTING, DESC, LOO, iris)
+    main(HEART_SETTING, DESC, K_FOLD, heart)
+    #main(HEART_SETTING, DESC, LOO, heart)
 
 
 
