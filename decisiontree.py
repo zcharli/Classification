@@ -91,24 +91,29 @@ class DecisionTree(object):
 
     def generateGraphviz(self, root):
         self.graph.node("Root node: "+str(root.trueValThreash))
-        self.printtree(root.trueNodes, "Root node: "+str(root.trueValThreash), "True")
-        self.printtree(root.falseNodes, "Root node: "+str(root.trueValThreash), "False")
+        self.graph.node_attr['ranksep'] = '1.5'
+        #self.graph.node_attr['label'] = 'Fuck'
+        node = root
+        self.printtree(root.trueNodes, "Rootnode:"+str(root.trueValThreash), "True")
+        self.printtree(root.falseNodes, "Rootnode:"+str(node.trueValThreash), "False")
         filename = self.graph.render(filename='img/decisionTree')
 
     def printtree(self, tree, parent=None, indent=''):
         # Is this a leaf node?
         if tree.branchResultDict is not None:
             self.num += 1
-            testTxt = "Decision: " + str(tree.branchResultDict) + str(self.num)
+            testTxt = "Decision:" + str(tree.branchResultDict[tree.branchResultDict.keys()[0]])+"_" + str(self.num)
             self.graph.node(testTxt)
-            self.graph.edge(testTxt, parent)
-            print
+            self.graph.edge(parent,testTxt)
+
         else:
             # Print the criteria
             self.num += 1
-            testTxt = indent + '->' + 'Column '+ str(tree.columnIndex) + ' : ' + str(tree.trueValThreash) + '?' + str(self.num)
+            testTxt = str(self.num)
+
+            #testTxt = indent + '->' + 'Column'+ str(tree.columnIndex) + ':' + str(tree.trueValThreash) + '?' + str(self.num)
             self.graph.node(testTxt)
-            self.graph.edge(testTxt, parent)
+            self.graph.edge(parent, testTxt)
             self.printtree(tree.trueNodes, testTxt,"True")
             self.printtree(tree.falseNodes, testTxt, 'False')
 
