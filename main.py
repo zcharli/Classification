@@ -40,10 +40,10 @@ def getClasses(tupleArray, s, leaveAnswer):
             classes[sampleClass] = [array]
     return classes
 
-def crossValidateSplit(data, s, splitStrat, testMethod):
+def crossValidateSplit(data, settings, splitStrat, testMethod):
     leaveAnswer = True if testMethod == DESC else False
-    settings = {TEST_STRATEGY:testMethod, "splitStrat":splitStrat, TITLE: s[TITLE]}
-    classes = getClasses(data, s, leaveAnswer)
+    settings.update({TEST_STRATEGY:testMethod, "splitStrat":splitStrat})
+    classes = getClasses(data, settings, leaveAnswer)
     kFoldDict = dict()
     for key in classes.keys():
         splitIdx = skc.KFold(len(classes[key]), n_folds=10, shuffle=True) if splitStrat == K_FOLD else skc.LeaveOneOut(
@@ -70,28 +70,39 @@ def crossValidateSplit(data, s, splitStrat, testMethod):
         totalCorrect += trainDecisionTree(testPackage, settings) if testMethod == DESC else train(testPackage, settings)
     print "%s accuracy using %s for %s dataset is %.2f%% over %d records\n" % \
           (settings[TEST_STRATEGY], settings["splitStrat"], settings[TITLE], 100*(totalCorrect / maxBatchNumber), \
-           s["numRecords"])
+           settings["numRecords"])
 
 def trainDecisionTree(pkgDict, settings=None):
-    currentBatch, currentClass, keys, totalCorrectness = 0, 0, s[T_CLASS].keys(), 0
+    totalCorrectness, trainBatch, count = 0, [], 0
     for key in pkgDict.keys():
+        trainBatch.append(pkgDict[key][TRAIN])
+    trainBatch = [data for sublist in trainBatch for data in sublist]
+    discretizedDataset, bins = discretize(trainBatch, settings)
+    decisionTree = d.DecisionTree(settings, bins)
+    root = decisionTree.train(discretizedDataset)
+    # decisionTree.printtree(root)
+    for key in pkgDict.keys():
+        for sample in pkgDict[key][TEST]:
+            if key == decisionTree.classify(root,sample):
+                totalCorrectness += 1
+            count += 1
+    return totalCorrectness / count
 
-        batchDataset, testDataset, classCorrect = [], None, 0
-        for eachKey in keys:
-            if eachKey == currentClass:
-                batchDataset.append(s[T_CLASS][eachKey][TEST_BATCH][batchNumber][TRAIN])
-                testDataset = s[T_CLASS][eachKey][TEST_BATCH][batchNumber][TEST]
-            else:
-                batchDataset.append(s[R_CLASS][eachKey][TEST_BATCH])
-        batchDataset = [data for sublist in batchDataset for data in sublist]
-        decisionTree = d.DecisionTree(s[CLASS_INDEX], s['discreet'])
-        root = decisionTree.train(batchDataset)
-        # decisionTree.printtree(root)
-        for data in testDataset:
-            if key == decisionTree.classify(root,
-                                            [dis if isinstance(dis, basestring) else decisionTree.discreetMe(dis)
-                                             for dis in data]):
-                classCorrect += 1
+def discretize(dataset, settings):
+    if settings["discreetMethod"] == "round": return dataset, settings['discreet']
+    index, discreetDataset, bins = 0, [], []
+    for row in np.array(dataset).T:
+        if index == settings[CLASS_INDEX]:
+            index += 1
+            discreetDataset.append(row)
+            continue
+        if settings[TITLE] == "IRIS":
+            row = np.asarray(row, dtype=float)
+        bins.append(np.linspace(row.min(), row.max(), settings["bins"]))
+        discreetDataset.append(np.digitize(row, bins[-1]))
+        index += 1
+    return np.array(discreetDataset).T, bins
+
 
 def train(pkgDict, settings=None):
     test, classCorrect, count = [], 0, 0
@@ -138,9 +149,9 @@ if __name__ == "__main__":
     # main(HEART_SETTING, LINEAR, LOO, heart)
     main(WINE_SETTING, DESC, K_FOLD, wine)
     # main(WINE_SETTING, DESC, LOO, wine)
-    # main(IRIS_SETTING, DESC, K_FOLD, iris)
-    # main(IRIS_SETTING, DESC, LOO, iris)
-    # main(HEART_SETTING, DESC, K_FOLD, heart)
+    main(IRIS_SETTING, DESC, K_FOLD, iris)
+    #main(IRIS_SETTING, DESC, LOO, iris)
+    #main(HEART_SETTING, DESC, K_FOLD, heart)
     # main(HEART_SETTING, DESC, LOO, heart)
 
 
